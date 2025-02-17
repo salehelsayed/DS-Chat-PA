@@ -91,9 +91,6 @@ button:hover {
     border-left: 3px solid var(--secondary);
 }
 
-
-
-
 .conversation-item {
     padding: 8px 12px;
     margin: 4px 0;
@@ -123,11 +120,7 @@ button:hover {
     cursor: pointer;
 }
 
-
-
-
-
-* Dropdown Styles */
+/* Dropdown Styles */
 .dropdown {
     position: relative;
     display: flex;
@@ -191,7 +184,6 @@ button:hover {
 .conversation-item:hover:not(.active) {
     background-color: #f8f9fa;
 }
-
 
 /* Loading spinner */
 .loading-spinner {
@@ -284,4 +276,160 @@ button:hover {
 @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0; }
+}
+
+/* Tab styles */
+.sidebar-tabs {
+    display: flex;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6c757d;
+    border-radius: 4px 4px 0 0;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    background-color: white;
+    border-bottom: 3px solid var(--secondary);
+}
+
+/* Vault item styles */
+.vault-item {
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.vault-folder-name {
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.vault-file-name {
+    color: #495057;
+}
+
+.vault-item:hover {
+    background-color: #f8f9fa;
+}
+
+.vault-item.active {
+    background-color: #e9ecef;
+    border-left: 3px solid var(--secondary);
+}
+
+/* Context menu styles */
+.vault-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.vault-context-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.vault-context-btn::after {
+    content: "⋯";
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.vault-context-btn:hover::after {
+    background-color: #e9ecef;
+}
+
+.vault-file-content {
+    white-space: pre-wrap;
+    font-family: monospace;
+    padding: 15px;
+    background: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Markdown rendering styles */
+.vault-file-content h1, .vault-file-content h2, .vault-file-content h3 {
+    color: var(--primary);
+    margin: 1.2em 0 0.6em;
+}
+
+.vault-file-content p {
+    line-height: 1.6;
+    margin: 1em 0;
+}
+
+.vault-file-content pre {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 4px;
+    overflow-x: auto;
+}
+
+.vault-file-content code {
+    font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+    background: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.vault-file-content ul {
+    padding-left: 1.5em;
+    list-style: disc;
+}
+
+.vault-file-content ol {
+    padding-left: 1.5em;
+    list-style: decimal;
+}
+
+.vault-file-content blockquote {
+    border-left: 3px solid #dee2e6;
+    margin: 1em 0;
+    padding-left: 1em;
+    color: #6c757d;
+}
+
+/* Vault dropdown specific styles */
+.vault-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    z-index: 100;
+    min-width: 120px;
+}
+
+.vault-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    color: var(--primary);
+}
+
+.vault-dropdown button:hover {
+    background-color: #f8f9fa;
 }

@@ -4,13 +4,19 @@
     <meta charset="UTF-8">
     <title>GPT Chat Agent</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h2>Conversations</h2>
-                <button onclick="newChat()" class="new-chat-btn">+ New</button>
+                <div class="sidebar-tabs">
+                    <button id="tab-conversations" class="tab-btn active">Conversations</button>
+                    <button id="tab-vault" class="tab-btn">Vault</button>
+                </div>
+                <button onclick="newChat()" class="new-chat-btn" id="new-chat-btn">+ New</button>
+                <button class="vault-new-btn" id="vault-new-file" style="display:none;">+ File</button>
+                <button class="vault-new-btn" id="vault-new-folder" style="display:none;">+ Folder</button>
             </div>
             <div id="conversation-list" class="conversation-list"></div>
         </div>

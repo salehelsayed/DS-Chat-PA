@@ -13,11 +13,12 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-app.use(express.json());
-app.use(express.static('public'));
 
 const CONV_DIR = path.join(__dirname, 'conversations');
 if (!fs.existsSync(CONV_DIR)) fs.mkdirSync(CONV_DIR);
+
+const VAULT_DIR = path.join(__dirname, 'vault');
+if (!fs.existsSync(VAULT_DIR)) fs.mkdirSync(VAULT_DIR, { recursive: true });
 
 let activeConversation = { id: null, file: null, messages: [] };
 
@@ -37,6 +38,32 @@ const getConversationTitle = (filePath) => {
   return firstLine.replace('# ', '').trim();
 };
 
+// Add path sanitization helper
+function sanitizePath(inputPath) {
+    try {
+        const resolved = path.resolve(VAULT_DIR, inputPath);
+        const isValid = resolved.startsWith(VAULT_DIR) &&
+                        !resolved.endsWith('..') &&
+                        !inputPath.includes('../') &&
+                        !/[<>:"|?*]/.test(inputPath);
+        
+        console.log('[SERVER] Path validation:', {
+            inputPath,
+            resolvedPath: resolved,
+            isValid
+        });
+
+        return isValid;
+    } catch (err) {
+        console.error('[SERVER] Path validation error:', err);
+        return false;
+    }
+}
+
+// API routes should come BEFORE static files
+app.use(express.json());
+
+// Add all API endpoints here
 app.post('/api/chat', async (req, res) => {
   const { message } = req.body;
   
@@ -99,5 +126,145 @@ app.post('/api/new-chat', (req, res) => {
   activeConversation = { id: null, file: null, messages: [] };
   res.json({ success: true });
 });
+
+// Vault structure endpoint
+app.get('/api/vault-structure', (req, res) => {
+    const getStructure = (dirPath) => {
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+        return entries.map(entry => {
+            // Fix root path handling
+            const absolutePath = path.join(dirPath, entry.name);
+            const relativePath = path.relative(VAULT_DIR, absolutePath);
+            
+            return {
+                name: entry.name,
+                path: relativePath === '' ? entry.name : relativePath.replace(/\\/g, '/'),
+                type: entry.isDirectory() ? 'directory' : 'file',
+                children: entry.isDirectory() ? getStructure(absolutePath) : null
+            };
+        });
+    };
+
+    try {
+        const structure = getStructure(VAULT_DIR);
+        res.json(structure);
+    } catch (err) {
+        res.status(500).json({ error: 'Error reading vault structure' });
+    }
+});
+
+// Vault file content endpoint
+app.get('/api/vault-file', (req, res) => {
+    const rawPath = req.query.path;
+    
+    // Enhanced validation
+    if (!rawPath || typeof rawPath !== 'string') {
+        return res.status(400).json({ error: 'Invalid path parameter' });
+    }
+
+    // Normalize using path module
+    const normalizedPath = path.normalize(
+        path.join(VAULT_DIR, rawPath)
+    ).replace(/\\/g, '/'); // Force UNIX-style paths
+
+    // Security check
+    if (!normalizedPath.startsWith(VAULT_DIR)) {
+        return res.status(403).json({ error: 'Path traversal attempt' });
+    }
+
+    // Existence check
+    fs.access(normalizedPath, fs.constants.F_OK, (err) => {
+        if (err) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Consistent encoding
+        res.sendFile(normalizedPath, {
+            headers: { 'Content-Type': 'text/markdown' }
+        });
+    });
+});
+
+// Vault file creation endpoint
+app.post('/api/vault-new-file', (req, res) => {
+  const { filePath } = req.body;
+  if (!sanitizePath(filePath)) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+
+  const fullPath = path.join(VAULT_DIR, filePath);
+  if (fs.existsSync(fullPath)) {
+    return res.status(400).json({ error: 'File already exists' });
+  }
+
+  fs.writeFile(fullPath, '', (err) => {
+    if (err) return res.status(500).json({ error: 'File creation failed' });
+    res.json({ success: true });
+  });
+});
+
+// Vault folder creation endpoint
+app.post('/api/vault-new-folder', (req, res) => {
+  const { folderPath } = req.body;
+  if (!sanitizePath(folderPath)) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+
+  const fullPath = path.join(VAULT_DIR, folderPath);
+  if (fs.existsSync(fullPath)) {
+    return res.status(400).json({ error: 'Folder already exists' });
+  }
+
+  fs.mkdir(fullPath, { recursive: true }, (err) => {
+    if (err) return res.status(500).json({ error: 'Folder creation failed' });
+    res.json({ success: true });
+  });
+});
+
+// Add vault operations endpoints
+app.put('/api/vault-rename', (req, res) => {
+    const { oldPath, newName } = req.body;
+    const fullOldPath = path.join(VAULT_DIR, oldPath);
+    const fullNewPath = path.join(VAULT_DIR, newName);
+    
+    if (!sanitizePath(fullOldPath) || !sanitizePath(fullNewPath)) {
+        return res.status(400).json({ error: 'Invalid path' });
+    }
+
+    fs.rename(fullOldPath, fullNewPath, (err) => {
+        if (err) return res.status(500).json({ error: 'Rename failed' });
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/vault-delete/:path', (req, res) => {
+    const targetPath = path.join(VAULT_DIR, req.params.path);
+    if (!sanitizePath(targetPath)) return res.status(400).json({error: 'Invalid path'});
+
+    fs.rm(targetPath, {recursive: true}, (err) => {
+        if (err) return res.status(500).json({error: 'Deletion failed'});
+        res.json({success: true});
+    });
+});
+
+app.put('/api/vault-move/:path', (req, res) => {
+    const oldPath = path.join(VAULT_DIR, req.params.path);
+    const newPath = path.join(VAULT_DIR, req.body.newPath);
+    
+    if (!sanitizePath(oldPath) || !sanitizePath(newPath)) {
+        return res.status(400).json({error: 'Invalid path'});
+    }
+
+    fs.rename(oldPath, newPath, (err) => {
+        if (err) return res.status(500).json({error: 'Move failed'});
+        res.json({success: true});
+    });
+});
+
+// Add before static files middleware
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
+// Static files should be LAST
+app.use(express.static('public'));
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
