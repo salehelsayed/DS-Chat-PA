@@ -38,24 +38,27 @@ const getConversationTitle = (filePath) => {
   return firstLine.replace('# ', '').trim();
 };
 
-// Add path sanitization helper
+// Add this helper function
+function universalPath(inputPath) {
+    return inputPath
+        .replace(/[\\/]/g, path.sep) // Convert to OS separators
+        .replace(/(\.\.)|[<>:"|?*]/g, '') // Sanitize
+        .split(path.sep)
+        .filter(segment => segment.trim() !== '')
+        .join(path.sep);
+}
+
+// Update sanitizePath function
 function sanitizePath(inputPath) {
     try {
-        const resolved = path.resolve(VAULT_DIR, inputPath);
-        const isValid = resolved.startsWith(VAULT_DIR) &&
-                        !resolved.endsWith('..') &&
-                        !inputPath.includes('../') &&
-                        !/[<>:"|?*]/.test(inputPath);
+        const cleanPath = universalPath(inputPath);
+        const resolved = path.resolve(VAULT_DIR, cleanPath);
+        const vaultRoot = path.resolve(VAULT_DIR);
         
-        console.log('[SERVER] Path validation:', {
-            inputPath,
-            resolvedPath: resolved,
-            isValid
-        });
-
-        return isValid;
+        return resolved.startsWith(vaultRoot) &&
+               !resolved.endsWith('..') &&
+               resolved !== vaultRoot;
     } catch (err) {
-        console.error('[SERVER] Path validation error:', err);
         return false;
     }
 }
@@ -132,13 +135,13 @@ app.get('/api/vault-structure', (req, res) => {
     const getStructure = (dirPath) => {
         const entries = fs.readdirSync(dirPath, { withFileTypes: true });
         return entries.map(entry => {
-            // Fix root path handling
             const absolutePath = path.join(dirPath, entry.name);
             const relativePath = path.relative(VAULT_DIR, absolutePath);
             
             return {
                 name: entry.name,
-                path: relativePath === '' ? entry.name : relativePath.replace(/\\/g, '/'),
+                path: relativePath === '' ? entry.name : 
+                    relativePath.split(path.sep).join('/'),
                 type: entry.isDirectory() ? 'directory' : 'file',
                 children: entry.isDirectory() ? getStructure(absolutePath) : null
             };
@@ -157,18 +160,16 @@ app.get('/api/vault-structure', (req, res) => {
 app.get('/api/vault-file', (req, res) => {
     const rawPath = req.query.path;
     
-    // Enhanced validation
-    if (!rawPath || typeof rawPath !== 'string') {
-        return res.status(400).json({ error: 'Invalid path parameter' });
-    }
-
+    // Convert all slashes to OS-specific format
+    const osSafePath = rawPath.replace(/[\\/]/g, path.sep);
+    
     // Normalize using path module
     const normalizedPath = path.normalize(
-        path.join(VAULT_DIR, rawPath)
-    ).replace(/\\/g, '/'); // Force UNIX-style paths
+        path.join(VAULT_DIR, osSafePath)
+    );
 
-    // Security check
-    if (!normalizedPath.startsWith(VAULT_DIR)) {
+    // Security check using resolved path
+    if (!normalizedPath.startsWith(path.resolve(VAULT_DIR))) {
         return res.status(403).json({ error: 'Path traversal attempt' });
     }
 

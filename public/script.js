@@ -454,8 +454,11 @@ document.addEventListener('drop', async (e) => {
 
 // Vault item operations
 async function renameVaultItem(item) {
-    const newName = prompt('Enter new name:', item.name);
+    let newName = prompt('Enter new name:', item.name);
     if (newName) {
+        // Normalize path separators
+        newName = newName.replace(/\\/g, '/');
+        
         try {
             // 1. Atomic path construction
             const newPath = item.path.replace(/[^/]+$/, newName);
@@ -505,11 +508,13 @@ async function deleteVaultItem(item) {
 }
 
 async function moveVaultItem(item) {
-    const newPath = prompt('Enter new path:', 
+    let newPath = prompt('Enter new path:', 
         item.path.includes('/') 
             ? item.path.split('/').slice(0, -1).join('/')
             : '');
     if (newPath) {
+        // Normalize path input
+        newPath = newPath.replace(/\\/g, '/');
         await fetch(`/api/vault-move/${encodeURIComponent(item.path)}`, {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
